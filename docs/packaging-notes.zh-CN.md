@@ -5,22 +5,54 @@
 ## 已知问题：播放时 CEF 的解包进程反复崩溃
 
 上游打包进来的 CEF（Chrome 137）在 Chromium 组件更新器解包组件时，会以
-`*** stack smashing detected ***` 中止它的 `unzip.mojom.Unzipper` 工具进程。CEF 没有实现
-`--change-stack-guard-on-fork`，导致 fork 出来的子进程栈保护金丝雀与 glibc 的预期不一致，
-`__stack_chk_fail` 直接调 `abort()`。
-
-这个问题在普通 Ubuntu 上用 CEF 官方 minimal 示例就能复现，与本沙箱无关，见
+`*** stack smashing detected ***` 中止它的 `unzip.mojom.Unzipper` 工具进程。这个问题在普通
+Ubuntu 上用 CEF 官方 minimal 示例就能复现，与本沙箱无关，见
 [chromiumembedded/cef#3912](https://github.com/chromiumembedded/cef/issues/3912)。
 组件更新器在后台运行，所以崩溃集中出现在播放期间。
 
-功能上无害：更新器会重试，组件最终确实装上了。代价是崩溃报告——每次 SIGABRT 都会写一个
-约 110 MB 的 core dump，而 KDE 的 drkonqi 会对每条 systemd-coredump 的 journal 记录弹出
-崩溃窗口。实测一次组件更新风暴是 53 秒内 24 次 abort，即 24 个弹窗和 2.6 GB 的 dump。
+机制是栈保护金丝雀，需要三件事同时成立：
 
-因此 `ani-wrapper` 把 `RLIMIT_CORE` 设为 0。没有 core 文件，drkonqi 就没有东西可展示，
-弹窗和 dump 增长都会停止（已验证：`systemd-coredump` 记录 "Resource limits disable core
-dumping"，且 `drkonqi-coredump-gui` 不会被启动）。需要调试时设 `ANIMEKO_FLATPAK_KEEP_CORES=1`
-即可保留 core：
+* CEF 通过 Chromium 的 zygote 拉起子进程，并给它传了
+  `--change-stack-guard-on-fork=enable`（在 `ps` 里能看到）；
+* Chromium 的 content 层确实实现了这个开关：每次 fork 出的子进程都会调用
+  `base::ResetStackCanaryIfPossible()`（`content/app/content_main_runner_impl.cc` 里的
+  `RunZygote()`），把从 zygote 继承下来的每个栈帧背后的金丝雀换掉；
+* CEF 自己的 `CefExecuteProcess()` 包着 `content::ContentMain()`，因而跨过了那次 fork，
+  而它并没有像 Chromium 自己的 fork 路径那样用 `NO_STACK_PROTECTOR` 编译。
+
+于是这种子进程第一次从 `CefExecuteProcess()` 里退出时，金丝雀校验失败，
+`__stack_chk_fail` 直接调 `abort()`。这也解释了为什么只有短命的子进程（更新器的 Unzipper）
+出问题，而 renderer、GPU、网络这些长命进程要等到退出时才走到同一个校验。
+
+功能上无害：更新器会重试，组件最终确实装上了。代价是崩溃报告——每次 SIGABRT 都会写一个
+约 110 MB 的 core dump，并且每条 systemd-coredump 的 journal 记录都会被 KDE 的 drkonqi
+接手。实测一次组件更新风暴是 53 秒内 24 次 abort，即 2.6 GB 的 dump，以及在当时的 Plasma
+上是 24 个崩溃窗口。
+
+关掉组件更新器本来是显而易见的出路，但在这里走不通。CEF 认识
+`--disable-component-update`，可 Linux 上 JCEF 从不把进程命令行交给 CEF：java-cef 原生代码
+里的 `Context::Initialize()` 传的是 `CefMainArgs(0, nullptr)`，而 Chromium 的
+`CommandLine::Init(0, nullptr)` 由此构造出一个空的 `base::CommandLine`。CEF 能看到的开关只有
+`CefSettings` 和应用自己追加的那些，写在 `flatpak run` 命令行上的开关永远到不了更新器。
+
+真正有效的是让内核干脆不要上报这次 abort。`ani-wrapper` 以前把 `RLIMIT_CORE` 设为 0，这不够：
+内核只在写文件型 core 时才看这个限制，而这里是 systemd 的管道模式
+（`|/usr/lib/systemd/systemd-coredump %P …`），内核照样会启动 systemd-coredump，让它记下这次
+abort 并转交给 drkonqi。在 Plasma 6.7.5 自带的 drkonqi 上，仅凭这条 journal 记录就会发出崩溃
+通知——这正是用户看到的现象：通知还在，点「详细信息」却什么都没有，因为根本没有 core。
+
+把限制设成**恰好 1 字节**就不一样了。这是内核给递归 core 留的哨兵值：`fs/coredump.c` 里的
+`coredump_pipe()` 会检查 `cprm->limit == 1`，在启动管道程序之前就放弃，于是这次 abort 不会被
+上报给任何人。`ulimit` 表达不了 1（它的单位是块），所以包装脚本用
+`prlimit --core=1:1 --pid $$`。在沙箱里用一次真实崩溃验证过：
+
+```
+kernel: coredump: 4(probe-sb): RLIMIT_CORE is set to 1, aborting core
+```
+
+同一时间窗内没有 `systemd-coredump` 单元、`coredumpctl` 里没有新条目、也没有任何
+`drkonqi-coredump-*` 单元。需要调试时设 `ANIMEKO_FLATPAK_KEEP_CORES=1` 可以跳过这一切、
+保留 core：
 
 ```sh
 flatpak run --env=ANIMEKO_FLATPAK_KEEP_CORES=1 me.him188.ani
@@ -32,8 +64,8 @@ flatpak run --env=ANIMEKO_FLATPAK_KEEP_CORES=1 me.him188.ani
 sudo rm -f /var/lib/systemd/coredump/core.jcef_helper.*
 ```
 
-真正的修复只能来自上游：换用实现了该开关的 JBR/CEF，或者 CEF 提供一个允许宿主传入组件更新
-开关的口子。
+真正的修复只能来自上游：给 CEF 的 fork 路径加上 `NO_STACK_PROTECTOR`（#3912 想要的正是这个），
+或者提供一个不依赖命令行的组件更新开关。
 
 ## 休眠抑制需要显式授予一个 D-Bus 名
 

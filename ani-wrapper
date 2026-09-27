@@ -12,17 +12,25 @@ set -eu
 
 # The bundled CEF (Chrome 137) aborts its unzip utility process with
 # "*** stack smashing detected ***" every time Chromium's component updater
-# unpacks a component; CEF does not implement --change-stack-guard-on-fork, so
-# the stack canary of the forked child does not match (CEF issue #3912). It is
-# harmless - the updater retries and the components do install - but every
-# SIGABRT writes a ~110 MB core dump and makes KDE's drkonqi pop a crash dialog.
-# One component burst produced 24 dialogs and 2.6 GB of dumps in a minute.
+# unpacks a component: Chromium's content layer re-randomises the stack canary
+# in every zygote child (CEF passes it --change-stack-guard-on-fork=enable), and
+# CEF's own CefExecuteProcess() - still on the stack across that fork - is not
+# built with NO_STACK_PROTECTOR, so its canary check fails (CEF issue #3912). It
+# is harmless - the updater retries and the components do install - but each
+# SIGABRT costs a ~110 MB core dump and makes KDE's crash reporter notify (one
+# burst was 24 aborts in 53 seconds).
 #
-# With no core file there is nothing for drkonqi to show, so both stop here. To
-# keep cores while debugging, e.g.:
+# RLIMIT_CORE 0 does not stop that reporting: the kernel only applies the limit
+# to file dumps, so with the systemd pipe pattern it still runs
+# systemd-coredump, which logs the abort and hands it to drkonqi - a crash
+# notification with no core behind it. A limit of exactly 1 byte is the kernel's
+# sentinel for a recursive dump: it abandons the dump before the pipe helper is
+# started at all. ulimit cannot express 1 (its unit is blocks), hence prlimit.
+#
+# To keep cores while debugging, e.g.:
 #   flatpak run --env=ANIMEKO_FLATPAK_KEEP_CORES=1 me.him188.ani
 if [ "${ANIMEKO_FLATPAK_KEEP_CORES:-0}" != "1" ]; then
-    ulimit -c 0
+    prlimit --core=1:1 --pid $$ 2>/dev/null || ulimit -c 0
 fi
 
 APPDIR=/app/extra/ani

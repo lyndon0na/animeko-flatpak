@@ -163,8 +163,8 @@ git push origin v6.2.0
   指向新的文件。
 * 应用数据存放在 `~/.var/app/me.him188.ani/`，与系统里安装的 Animeko 完全隔离。
 * App ID 沿用上游自己的 `me.him188.ani`，依据见[技术说明](docs/packaging-notes.zh-CN.md)。
-* CEF 在组件更新器运行时会让 unzip 工具进程崩溃，KDE 因此每次弹一个崩溃窗口。
-  wrapper 已关闭 core dump 让 drkonqi 保持安静，详见
+* CEF 在组件更新器运行时会让 unzip 工具进程崩溃；崩溃本身无害，但 KDE 的崩溃报告器会为此
+  发通知，wrapper 现在让内核不再上报这些 abort，详见
   [已知问题](docs/packaging-notes.zh-CN.md)。
 
 ## 许可证

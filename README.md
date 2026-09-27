@@ -189,8 +189,8 @@ substituted at publish time, so no key material is in the repository.
 * The App ID is upstream's own `me.him188.ani`; the reasoning is in the
   [packaging notes](docs/packaging-notes.md).
 * CEF aborts its unzip utility process each time Chromium's component updater
-  runs, which made KDE show a crash dialog per abort. The wrapper disables core
-  dumps so drkonqi stays quiet — see the
+  runs. The abort is harmless, but KDE's crash reporter notified about it, so
+  the wrapper keeps the kernel from reporting those aborts — see the
   [known issue](docs/packaging-notes.md#known-issue-cefs-unzip-utility-aborts-during-playback).
 
 ## License

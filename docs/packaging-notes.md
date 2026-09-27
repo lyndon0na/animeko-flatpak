@@ -7,27 +7,66 @@ usage see the [README](../README.md).
 
 The CEF build bundled upstream (Chrome 137) aborts its `unzip.mojom.Unzipper`
 utility process with `*** stack smashing detected ***` every time Chromium's
-component updater unpacks a downloaded component. CEF does not implement
-`--change-stack-guard-on-fork`, so the stack canary of the forked child does not
-match what glibc expects and `__stack_chk_fail` calls `abort()`.
-
-It reproduces with CEF's own minimal example on plain Ubuntu, so it is not
-caused by this sandbox — see
+component updater unpacks a downloaded component. It reproduces with CEF's own
+minimal example on plain Ubuntu, so it is not caused by this sandbox — see
 [chromiumembedded/cef#3912](https://github.com/chromiumembedded/cef/issues/3912).
 The component updater runs in the background, which is why the burst shows up
 during playback.
 
+The mechanism is the stack canary, and it takes three facts to line up:
+
+* CEF launches its processes through a Chromium zygote and passes that zygote
+  `--change-stack-guard-on-fork=enable` (visible in `ps`);
+* Chromium's content layer honours the flag and calls
+  `base::ResetStackCanaryIfPossible()` in every forked child (`RunZygote()` in
+  `content/app/content_main_runner_impl.cc`), deliberately changing the canary
+  behind every stack frame inherited from the zygote;
+* CEF's own `CefExecuteProcess()`, which wraps `content::ContentMain()` and is
+  therefore still on the stack across that fork, is not built with
+  `NO_STACK_PROTECTOR` the way Chromium's own fork path is.
+
+The first time such a child unwinds out of `CefExecuteProcess()` the canary
+check fails and `__stack_chk_fail` calls `abort()`. That is why it shows up on
+short-lived children — the updater's Unzipper — and not on the renderer, GPU and
+network processes, which only reach the same check when they exit.
+
 Functionally it is harmless: the updater retries and the components do end up
 installed. The cost is the crash reporting. Every SIGABRT writes a ~110 MB core
-dump, and KDE's drkonqi reacts to each systemd-coredump journal entry with a
-crash dialog — one observed burst was 24 aborts in 53 seconds, i.e. 24 dialogs
-and 2.6 GB of dumps.
+dump, and every abort produces a systemd-coredump journal record that KDE's
+drkonqi acts on — one observed burst was 24 aborts in 53 seconds, i.e. 2.6 GB of
+dumps and 24 crash dialogs on the Plasma version that was current then.
 
-`ani-wrapper` therefore sets `RLIMIT_CORE` to 0. With no core file there is
-nothing for drkonqi to show, so both the dialogs and the dump growth stop
-(verified: `systemd-coredump` logs "Resource limits disable core dumping" and
-`drkonqi-coredump-gui` is not started). Set `ANIMEKO_FLATPAK_KEEP_CORES=1` to
-keep cores when debugging:
+Disabling the component updater would be the obvious way out, and it is not
+available from here. CEF knows `--disable-component-update`, but JCEF never
+gives CEF the process command line on Linux: `Context::Initialize()` in
+java-cef's native code passes `CefMainArgs(0, nullptr)`, and Chromium's
+`CommandLine::Init(0, nullptr)` builds an empty `base::CommandLine` from that.
+The only switches CEF sees are the ones `CefSettings` and the application itself
+append, so a switch on `flatpak run`'s command line never reaches the updater.
+
+What does work is keeping the kernel from reporting the abort at all.
+`ani-wrapper` used to set `RLIMIT_CORE` to 0, and that is not enough: the kernel
+consults the limit only for file dumps, so with the systemd pipe pattern
+(`|/usr/lib/systemd/systemd-coredump %P …`) it still runs systemd-coredump, which
+logs the abort and hands it to drkonqi. With the drkonqi shipped on Plasma 6.7.5
+a notification is raised from that journal record alone — which is exactly the
+symptom: a crash notification whose "Details" button opens an empty report,
+because no core was ever written.
+
+A limit of exactly **1 byte** behaves differently. It is the kernel's sentinel
+for a recursive dump: `coredump_pipe()` in `fs/coredump.c` checks
+`cprm->limit == 1` and gives up before the pipe helper is even started, so the
+abort is never reported to anyone. `ulimit` cannot express 1 — its unit is
+blocks — so the wrapper calls `prlimit --core=1:1 --pid $$`. Verified with a
+crash inside the sandbox:
+
+```
+kernel: coredump: 4(probe-sb): RLIMIT_CORE is set to 1, aborting core
+```
+
+and, in the same window, no `systemd-coredump` unit, no new entry in
+`coredumpctl` and no `drkonqi-coredump-*` unit. Set `ANIMEKO_FLATPAK_KEEP_CORES=1`
+to skip all of this and keep cores when debugging:
 
 ```sh
 flatpak run --env=ANIMEKO_FLATPAK_KEEP_CORES=1 me.him188.ani
@@ -40,8 +79,9 @@ with `sudo`:
 sudo rm -f /var/lib/systemd/coredump/core.jcef_helper.*
 ```
 
-A real fix has to come from upstream: a JBR/CEF that implements the flag, or a
-component-updater switch CEF lets the host pass in.
+A real fix has to come from upstream: `NO_STACK_PROTECTOR` on CEF's fork path
+(what #3912 asks for), or a way to turn the component updater off without the
+command line.
 
 ## Sleep inhibition needs an explicit D-Bus grant
 
