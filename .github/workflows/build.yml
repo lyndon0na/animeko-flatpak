@@ -51,6 +51,19 @@ jobs:
           cfg="$app/extra/ani/usr/lib/app/Ani.cfg"
           jar="$app/extra/ani/usr/lib/app/animeko-bootstrap.jar"
           manifest="$RUNNER_TEMP/manifest.txt"
+          metadata="$RUNNER_TEMP/metadata.txt"
+
+          # What to expect is read from the manifest, the only file a version
+          # bump rewrites. Copies of these values used to live here and went
+          # stale on the 6.2.0 bump, failing the build after an install that
+          # was in fact correct.
+          extra="$(sed -n '/type: extra-data/,/only-arches/p' me.him188.ani.yaml)"
+          version="$(printf '%s\n' "$extra" | sed -n 's|.*/download/v\([^/]*\)/.*|\1|p')"
+          url="$(printf '%s\n' "$extra" | sed -n 's/^ *url: *//p')"
+          sha256="$(printf '%s\n' "$extra" | sed -n 's/^ *sha256: *//p')"
+          size="$(printf '%s\n' "$extra" | sed -n 's/^ *size: *//p')"
+          test -n "$version" && test -n "$url" && test -n "$sha256" && test -n "$size"
+          echo "manifest: Animeko $version, $size bytes, sha256 $sha256"
 
           # Everything shipped by this repository.
           test -x "$app/bin/ani"
@@ -68,22 +81,25 @@ jobs:
           test "$(grep -c '^app.classpath=' "$cfg")" = "1"
           grep -q '^app.classpath=\$APPDIR/animeko-bootstrap.jar$' "$cfg"
 
+          # The bootstrap jar must list the desktop jar of the recorded
+          # version, and a main class that the launcher can start.
           unzip -p "$jar" META-INF/MANIFEST.MF > "$manifest"
           grep -q '^Class-Path: ' "$manifest"
-          grep -q 'desktop-6.1.0.jar' "$manifest"
+          grep -q "desktop-$version.jar" "$manifest"
           grep -q '^Main-Class: me.him188.ani.app.desktop.AniDesktop' "$manifest"
 
-          for size in 128 256 512; do
-            test -f "$app/share/icons/hicolor/${size}x${size}/apps/me.him188.ani.png"
+          for dim in 128 256 512; do
+            test -f "$app/share/icons/hicolor/${dim}x${dim}/apps/me.him188.ani.png"
           done
 
           # The commit must carry the extra-data instruction, otherwise flatpak
-          # would have installed an app with no payload in it.
-          flatpak info --user -m me.him188.ani > "$RUNNER_TEMP/metadata.txt"
-          sed -n '/^\[Extra Data\]/,/^\[/p' "$RUNNER_TEMP/metadata.txt"
-          grep -q '^checksum=abeeab01daf4a08ab1cd7c4d9c6999b1741a577d93ad7e2ef28b80ea12296aa7$' \
-            "$RUNNER_TEMP/metadata.txt"
-          grep -q '^size=336849400$' "$RUNNER_TEMP/metadata.txt"
+          # would have installed an app with no payload in it. flatpak records
+          # it verbatim, so it has to be what the manifest declared.
+          flatpak info --user -m me.him188.ani > "$metadata"
+          sed -n '/^\[Extra Data\]/,/^\[/p' "$metadata"
+          grep -qx "checksum=$sha256" "$metadata"
+          grep -qx "size=$size" "$metadata"
+          grep -qx "uri=$url" "$metadata"
           echo "installed app ok"
 
       # The runner has no display. Xvfb is enough for the app to log its
