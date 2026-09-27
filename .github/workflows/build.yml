@@ -172,6 +172,16 @@ jobs:
           set -euo pipefail
           flatpak-builder --user --force-clean --disable-rofiles-fuse \
             --repo=pages/repo --gpg-sign="$GPG_KEY_ID" build me.him188.ani.yaml
+
+          # An OSTree repository carries empty refs/remotes and refs/mirrors
+          # directories, and git cannot transport empty directories, so both are
+          # missing from the cloned repository. flatpak build-update-repo fails
+          # without them, while generating the static deltas:
+          #   Listing refs: opendir(refs/remotes): No such file or directory
+          # The first release creates them - there is nothing to clone yet -
+          # every later one has to recreate them.
+          mkdir -p pages/repo/refs/remotes pages/repo/refs/mirrors
+
           flatpak build-update-repo --gpg-sign="$GPG_KEY_ID" \
             --generate-static-deltas --title=Animeko pages/repo
 
