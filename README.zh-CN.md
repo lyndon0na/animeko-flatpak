@@ -11,13 +11,13 @@
 | 项目 | 值 |
 |---|---|
 | 名称 | Animeko（简称 Ani） |
-| 版本 | 6.1.0 |
+| 版本 | 6.2.0 |
 | App ID | `me.him188.ani` |
 | Runtime | `org.gnome.Platform` 49 |
 | 架构 | x86_64 |
 | 上游源码 | https://github.com/open-ani/animeko |
 | 官网 | https://animeko.org/ |
-| 应用本体 | 上游的 `ani-6.1.0-linux-x86_64.appimage`，声名为 [extra-data](https://docs.flatpak.org/en/latest/module-sources.html#extra-data) 源：flatpak 在用户机器上安装时下载并校验 sha256，再由 `apply_extra` 解包和打补丁 |
+| 应用本体 | 上游的 `ani-6.2.0-linux-x86_64.appimage`，声名为 [extra-data](https://docs.flatpak.org/en/latest/module-sources.html#extra-data) 源：flatpak 在用户机器上安装时下载并校验 sha256，再由 `apply_extra` 解包和打补丁 |
 
 ## 安装
 
@@ -141,15 +141,15 @@ Runner 没有显示器，所以 GUI 冒烟测试在 Xvfb 下尽力而为地运�
 发新版时改 manifest 的 `url`、`sha256`、`size`（顺手更新 metainfo 里的 `<release>`），提交、打标签。
 
 ```sh
-git tag v6.1.0
-git push origin v6.1.0
+git tag v6.2.0
+git push origin v6.2.0
 ```
 
 打标签前值得知道的两件事：
 
 * **每一个发布的版本，用户都要重下约 337 MB。** 只要 commit 变了，flatpak 就会重新下载并重新
   应用 extra data，即使 manifest 里那条记录没变——`flatpak update -v` 每次都会打印
-  `Loading …ani-6.1.0-linux-x86_64.appimage using curl`。所以改动要攒一起发，别为纯元数据打版本。
+  `Loading …ani-6.2.0-linux-x86_64.appimage using curl`。所以改动要攒一起发，别为纯元数据打版本。
 * 发布出去的仓库每版只有几百 KB（第一版是 380 KB），因为应用本体不在里面，GitHub Pages 绰绰有余。
   签名密钥丢了的话，所有用户都得用新密钥重新添加 remote，注意备份。
 
