@@ -11,13 +11,13 @@ Build configuration that repackages the official Linux AppImage as a Flatpak.
 | | |
 |---|---|
 | Name | Animeko (Ani) |
-| Version | 6.1.0 |
+| Version | 6.2.0 |
 | App ID | `me.him188.ani` |
 | Runtime | `org.gnome.Platform` 49 |
 | Architecture | x86_64 |
 | Upstream source | https://github.com/open-ani/animeko |
 | Homepage | https://animeko.org/ |
-| App payload | the upstream `ani-6.1.0-linux-x86_64.appimage`, declared as an [extra-data](https://docs.flatpak.org/en/latest/module-sources.html#extra-data) source: flatpak downloads it on the machine where the app is installed, verifies its sha256, and `apply_extra` unpacks and patches it there |
+| App payload | the upstream `ani-6.2.0-linux-x86_64.appimage`, declared as an [extra-data](https://docs.flatpak.org/en/latest/module-sources.html#extra-data) source: flatpak downloads it on the machine where the app is installed, verifies its sha256, and `apply_extra` unpacks and patches it there |
 
 ## Installation
 
@@ -139,8 +139,8 @@ The runner is headless, so the GUI smoke test runs under Xvfb as a best-effort
 step that reports without failing the build. The structural checks are gating.
 
 ```sh
-git tag v6.1.0
-git push origin v6.1.0
+git tag v6.2.0
+git push origin v6.2.0
 ```
 
 ## Publishing
@@ -166,7 +166,7 @@ Two things worth knowing before you tag:
 * **Every published commit costs each user a full ~337 MB download.** flatpak
   re-downloads and re-applies extra data whenever the commit changes, even when
   the extra-data record did not - `flatpak update -v` prints
-  `Loading …ani-6.1.0-linux-x86_64.appimage using curl` every time. Batch your
+  `Loading …ani-6.2.0-linux-x86_64.appimage using curl` every time. Batch your
   changes; do not cut metadata-only releases.
 * The published repository is a few hundred kilobytes per version (the first one
   was 380 KB), because the application is not in it - GitHub Pages is plenty.
