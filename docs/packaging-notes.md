@@ -267,8 +267,8 @@ Two smaller details the script handles:
 
 * flatpak does not mark extra data executable, so it `chmod +x`es the file
   first;
-* `python3` comes from the runtime at `/usr/bin/python3` (Python 3.13 in
-  org.gnome.Platform 49), which is why the bootstrap step could stay a Python
+* `python3` comes from the runtime at `/usr/bin/python3` (Python 3.14 in
+  org.gnome.Platform 51), which is why the bootstrap step could stay a Python
   script instead of being rewritten in shell.
 
 After unpacking, the tree is moved to `/app/extra/ani` and `make-bootstrap.py`
@@ -422,6 +422,18 @@ identical to the AppImage apart from `Ani.cfg` and the new bootstrap jar.
 
 ## Sandbox details
 
+### Screenshots land in the working directory
+
+The playback screen's camera button gives mpv a bare filename
+(`<subject id>-<episode>-<m>m<s>s<ms>ms.png`), and both `screenshot-to-file` and
+the native surface readback resolve a relative path against the process working
+directory. flatpak starts the app with the working directory set to `$HOME`, and
+in the sandbox that `$HOME` is a per-run tmpfs (it holds only `.config`, `.local`
+and `.var`) that is discarded on exit, so a screenshot taken there would never
+reach the disk. `ani-wrapper` therefore `cd`s into
+`$XDG_DATA_HOME/ani/screenshots` before `exec`; on the host that is
+`~/.var/app/me.him188.ani/data/ani/screenshots/`.
+
 ### X11 is required
 
 JCEF hardcodes `--ozone-platform=x11`: Chromium's Wayland backend crashes the CEF
@@ -437,7 +449,7 @@ Chromium's sandbox needs either a setuid `chrome-sandbox` (impossible in Flatpak
 or unprivileged user namespaces, which Flatpak's seccomp policy blocks:
 
 ```
-$ flatpak run --command=sh org.gnome.Platform//49 -c 'unshare -U true'
+$ flatpak run --command=sh org.gnome.Platform//51 -c 'unshare -U true'
 unshare: unshare failed: Operation not permitted
 ```
 

@@ -21,7 +21,7 @@
 
 app-id: me.him188.ani
 runtime: org.gnome.Platform
-runtime-version: '49'
+runtime-version: '51'
 sdk: org.gnome.Sdk
 command: ani
 

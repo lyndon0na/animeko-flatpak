@@ -13,7 +13,7 @@ Build configuration that repackages the official Linux AppImage as a Flatpak.
 | Name | Animeko (Ani) |
 | Version | 6.2.0 |
 | App ID | `me.him188.ani` |
-| Runtime | `org.gnome.Platform` 49 |
+| Runtime | `org.gnome.Platform` 51 |
 | Architecture | x86_64 |
 | Upstream source | https://github.com/open-ani/animeko |
 | Homepage | https://animeko.org/ |
@@ -40,7 +40,7 @@ sudo apt install flatpak flatpak-builder      # Debian / Ubuntu
 
 # Flathub, plus the GNOME runtime and SDK
 flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub org.gnome.Platform//49 org.gnome.Sdk//49
+flatpak install --user flathub org.gnome.Platform//51 org.gnome.Sdk//51
 
 # clone and build
 git clone https://github.com/lyndon0na/animeko-flatpak.git
@@ -91,10 +91,11 @@ well.
 | `--talk-name=org.freedesktop.ScreenSaver` | Inhibit the screen saver and sleep while a video plays |
 
 No host filesystem access is requested. Everything the app stores by default -
-the media download folder, the media cache, the database and the logs - lives in
-`~/.var/app/me.him188.ani/`, which the sandbox always provides. Pointing the app
-at a real path therefore needs a grant too: the folder picker will happily show
-you `~/Videos`, but the app cannot read or write it until you allow it.
+the media download folder, the media cache, the screenshots, the database and
+the logs - lives in `~/.var/app/me.him188.ani/`, which the sandbox always
+provides. Pointing the app at a real path therefore needs a grant too: the
+folder picker will happily show you `~/Videos`, but the app cannot read or write
+it until you allow it.
 
 ```sh
 flatpak override --user --filesystem=xdg-videos me.him188.ani
@@ -108,7 +109,7 @@ of width.
 
 | File | Purpose |
 |---|---|
-| `me.him188.ani.yaml` | Flatpak manifest (GNOME runtime 49) |
+| `me.him188.ani.yaml` | Flatpak manifest (GNOME runtime 51) |
 | `apply_extra` | runs at install and update time: unpacks the AppImage and patches it |
 | `make-bootstrap.py` | rewrites `Ani.cfg` and generates the bootstrap jar; executed by `apply_extra`, see the [packaging notes](docs/packaging-notes.md) |
 | `ani-wrapper` | `/app/bin/ani` entry point |
@@ -186,6 +187,11 @@ substituted at publish time, so no key material is in the repository.
   the manifest is pointed at a new one.
 * App state lives in `~/.var/app/me.him188.ani/`, fully separate from a
   system-installed Animeko.
+* The playback screen's screenshot button saves PNGs to
+  `~/.var/app/me.him188.ani/data/ani/screenshots/`; the wrapper points the
+  process working directory there because flatpak's sandbox `$HOME` is
+  discarded on exit — see the
+  [packaging notes](docs/packaging-notes.md#screenshots-land-in-the-working-directory).
 * The App ID is upstream's own `me.him188.ani`; the reasoning is in the
   [packaging notes](docs/packaging-notes.md).
 * CEF aborts its unzip utility process each time Chromium's component updater

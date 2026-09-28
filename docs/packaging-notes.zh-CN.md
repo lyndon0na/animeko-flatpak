@@ -233,7 +233,7 @@ Failed to get fs offset for /proc/self/exe
 脚本另外处理两个细节：
 
 * flatpak 交给应用的是 644 权限的文件，所以先 `chmod +x`；
-* `python3` 来自 runtime 的 `/usr/bin/python3`（org.gnome.Platform 49 里是 Python 3.13），
+* `python3` 来自 runtime 的 `/usr/bin/python3`（org.gnome.Platform 51 里是 Python 3.14），
   所以引导 jar 那一步可以继续用 Python，不必改写成 shell。
 
 解包后的目录被移到 `/app/extra/ani`，再由 `make-bootstrap.py` 打补丁——和以前在构建期做的事
@@ -367,6 +367,15 @@ magick icons/appimage-icon.png -filter Lanczos -resize 256x256 icons/me.him188.a
 
 ## 沙箱细节
 
+### 截图会落在工作目录里
+
+播放界面的相机按钮把一个裸文件名交给 mpv（`<条目ID>-<集>-<m>m<s>s<ms>ms.png`），
+`mpv` 的 `screenshot-to-file` 和原生 surface 回读都会把相对路径解析到进程的当前工作目录。
+flatpak 启动应用时把工作目录设为 `$HOME`，而沙箱里的这个 `$HOME` 是每次运行新建的 tmpfs
+（里面只有 `.config`、`.local`、`.var`），退出即销毁——截图写在那里永远不会落到磁盘上。
+因此 `ani-wrapper` 在 `exec` 前会 `cd` 到 `$XDG_DATA_HOME/ani/screenshots`，
+在主机上就是 `~/.var/app/me.him188.ani/data/ani/screenshots/`。
+
 ### 必须给 X11
 
 JCEF 硬编码了 `--ozone-platform=x11`：Chromium 的 Wayland 后端会让 CEF 浏览器进程在到达
@@ -381,7 +390,7 @@ Chromium 的沙箱要么依赖 setuid 的 `chrome-sandbox`（在 Flatpak 里不�
 非特权 user namespace，而后者被 Flatpak 的 seccomp 策略禁掉了：
 
 ```
-$ flatpak run --command=sh org.gnome.Platform//49 -c 'unshare -U true'
+$ flatpak run --command=sh org.gnome.Platform//51 -c 'unshare -U true'
 unshare: unshare failed: Operation not permitted
 ```
 

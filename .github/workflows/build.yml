@@ -29,7 +29,7 @@ jobs:
         run: |
           flatpak remote-add --if-not-exists --user flathub \
             https://dl.flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y flathub org.gnome.Platform//49 org.gnome.Sdk//49
+          flatpak install --user -y flathub org.gnome.Platform//51 org.gnome.Sdk//51
 
       # The AppImage is an extra-data source: flatpak-builder only records it in
       # the app metadata, and flatpak downloads it from the upstream release at
@@ -234,7 +234,7 @@ jobs:
             echo
             echo "That configures the remote as well, so later versions arrive through"
             echo "\`flatpak update\`. Installing downloads ~337 MB from GitHub and needs"
-            echo "org.gnome.Platform 49."
+            echo "org.gnome.Platform 51."
           } > "$notes"
 
           if gh release view "$tag" >/dev/null 2>&1; then

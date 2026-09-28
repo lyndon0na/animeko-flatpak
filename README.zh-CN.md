@@ -13,7 +13,7 @@
 | 名称 | Animeko（简称 Ani） |
 | 版本 | 6.2.0 |
 | App ID | `me.him188.ani` |
-| Runtime | `org.gnome.Platform` 49 |
+| Runtime | `org.gnome.Platform` 51 |
 | 架构 | x86_64 |
 | 上游源码 | https://github.com/open-ani/animeko |
 | 官网 | https://animeko.org/ |
@@ -39,7 +39,7 @@ sudo apt install flatpak flatpak-builder      # Debian / Ubuntu
 
 # 添加 Flathub 并安装 GNOME runtime 与 SDK
 flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user flathub org.gnome.Platform//49 org.gnome.Sdk//49
+flatpak install --user flathub org.gnome.Platform//51 org.gnome.Sdk//51
 
 # 克隆并构建
 git clone https://github.com/lyndon0na/animeko-flatpak.git
@@ -85,9 +85,9 @@ flatpak uninstall --user me.him188.ani
 | `--talk-name=org.freedesktop.Notifications` | 通知 |
 | `--talk-name=org.freedesktop.ScreenSaver` | 播放时抑制熄屏与休眠 |
 
-这份打包不申请任何宿主文件系统权限。应用默认写入的一切——媒体下载目录、媒体缓存、数据库、
-日志——都在 `~/.var/app/me.him188.ani/` 里，沙箱自带这块空间。因此想把缓存或下载目录指到真实
-路径时，需要另外授权：文件夹选择器会照样让你选中 `~/Videos`，但在授权之前应用读写不了它。
+这份打包不申请任何宿主文件系统权限。应用默认写入的一切——媒体下载目录、媒体缓存、截图、
+数据库、日志——都在 `~/.var/app/me.him188.ani/` 里，沙箱自带这块空间。因此想把缓存或下载目录
+指到真实路径时，需要另外授权：文件夹选择器会照样让你选中 `~/Videos`，但在授权之前应用读写不了它。
 
 ```sh
 flatpak override --user --filesystem=xdg-videos me.him188.ani
@@ -100,7 +100,7 @@ flatpak override --user --filesystem=xdg-videos me.him188.ani
 
 | 文件 | 说明 |
 |---|---|
-| `me.him188.ani.yaml` | Flatpak manifest（GNOME runtime 49） |
+| `me.him188.ani.yaml` | Flatpak manifest（GNOME runtime 51） |
 | `apply_extra` | 安装/更新时执行：解包 AppImage 并打补丁 |
 | `make-bootstrap.py` | 改写 `Ani.cfg` 并生成引导 jar，由 `apply_extra` 调用，详见[技术说明](docs/packaging-notes.zh-CN.md) |
 | `ani-wrapper` | `/app/bin/ani` 入口脚本 |
@@ -162,6 +162,9 @@ git push origin v6.2.0
   约 337 MB 下载；上游若删除了某个 release 资产，新用户会装不上，直到 manifest 里的 sha256
   指向新的文件。
 * 应用数据存放在 `~/.var/app/me.him188.ani/`，与系统里安装的 Animeko 完全隔离。
+* 播放界面的截图按钮把 PNG 存到 `~/.var/app/me.him188.ani/data/ani/screenshots/`；
+  flatpak 沙箱里的 `$HOME` 退出即销毁，所以 wrapper 在启动前把进程工作目录指到了那里，详见
+  [技术说明](docs/packaging-notes.zh-CN.md#截图会落在工作目录里)。
 * App ID 沿用上游自己的 `me.him188.ani`，依据见[技术说明](docs/packaging-notes.zh-CN.md)。
 * CEF 在组件更新器运行时会让 unzip 工具进程崩溃；崩溃本身无害，但 KDE 的崩溃报告器会为此
   发通知，wrapper 现在让内核不再上报这些 abort，详见

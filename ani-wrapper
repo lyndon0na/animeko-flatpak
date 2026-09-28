@@ -38,4 +38,15 @@ export APPDIR
 export PATH="$APPDIR/usr/bin:$PATH"
 export XDG_DATA_DIRS="$APPDIR/usr/share${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
 
+# The playback screen's screenshot button hands mpv a bare filename, so mpv's
+# `screenshot-to-file` and the native surface readback write it relative to the
+# process working directory. flatpak starts the app with cwd set to $HOME, and
+# in the sandbox that $HOME is a per-run tmpfs (only .config, .local and .var),
+# thrown away on exit - a screenshot written there would never reach the disk.
+# chdir into a persistent directory first, so the file lands in
+# ~/.var/app/me.him188.ani/data/ani/screenshots/ on the host.
+screenshots="${XDG_DATA_HOME:-$HOME/.var/app/me.him188.ani/data}/ani/screenshots"
+mkdir -p "$screenshots"
+cd "$screenshots"
+
 exec "$APPDIR/usr/bin/Ani" "$@"
