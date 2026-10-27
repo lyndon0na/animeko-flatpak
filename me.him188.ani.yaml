@@ -92,13 +92,13 @@ modules:
       # Retrieved by flatpak on the user's machine, at install and at every
       # update: flatpak-builder never downloads it, it only records the entry in
       # the app metadata. sha256 and size are the published upstream asset
-      # (open-ani/animeko v6.3.0, 339790328 bytes). Bumping upstream means
+      # (open-ani/animeko v6.4.0, 342665720 bytes). Bumping upstream means
       # editing url, sha256 and size here - nothing else in this manifest.
       - type: extra-data
         filename: ani.appimage
-        url: https://github.com/open-ani/animeko/releases/download/v6.3.0/ani-6.3.0-linux-x86_64.appimage
-        sha256: 7bba966c8d2b0d4ac6a3cd2b3a08357c0b7a1b2ecbe9e8ee20b7f1b09c3c9be1
-        size: 339790328
+        url: https://github.com/open-ani/animeko/releases/download/v6.4.0/ani-6.4.0-linux-x86_64.appimage
+        sha256: 5679ea8d86a23883e022156cf3eec5e05aef459f2577cf710e5a766f64104f27
+        size: 342665720
         only-arches:
           - x86_64
       - type: file
