@@ -253,6 +253,10 @@ The JNI wrapper itself stays: Animeko runs FFmpeg in-process through
 `libffmpegkitjni.so`, not through the `ffmpeg` command-line binary. The
 AppImage's own `ffmpeg` executable is unused and is deleted as well.
 
+The AppImage also carries `resources/appimageupdatetool-x86_64.AppImage`, which
+jpackage uses for AppImage self-updates. Flatpak owns updates here and `/app` is
+read-only, so the tool cannot work; it is removed too, saving about 35 MB.
+
 This couples the AppImage's FFmpeg SONAMEs to the manifest's runtime. If a
 future Animeko release moves to a new FFmpeg major version (for example SONAME
 63), the runtime has to move at the same time. The CI `mediamp-ffmpeg-smoke-test`
