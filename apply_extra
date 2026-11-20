@@ -49,6 +49,10 @@ python3 /app/libexec/strip-bundled-libs.py "$APP_DIR/usr/lib/app/native"
 # standalone command-line binary.
 rm -f "$APP_DIR/usr/lib/app/ffmpeg"
 
+# jpackage bundles appimageupdatetool for AppImage self-updates. Flatpak owns
+# updates here, and /app is read-only, so the tool cannot work anyway.
+rm -f "$APP_DIR/usr/lib/app/resources/appimageupdatetool-x86_64.AppImage"
+
 # python3 comes from org.gnome.Platform; the app's own jpackage launcher cannot
 # survive its 37 KB classpath (see docs/packaging-notes.md).
 python3 /app/libexec/make-bootstrap.py "$APP_DIR/usr/lib/app"

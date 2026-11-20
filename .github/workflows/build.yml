@@ -83,6 +83,7 @@ jobs:
           test ! -e "$app/extra/ani/usr/lib/app/native/libavformat.so.62"
           test ! -e "$app/extra/ani/usr/lib/app/native/libva.so.2"
           test ! -e "$app/extra/ani/usr/lib/app/ffmpeg"
+          test ! -e "$app/extra/ani/usr/lib/app/resources/appimageupdatetool-x86_64.AppImage"
           test -f "$app/extra/ani/usr/lib/app/native/libmpv.so.2"
           test -f "$app/extra/ani/usr/lib/app/libffmpegkitjni.so"
           test -f "$app/extra/ani/usr/lib/app/libmediampv.so"
