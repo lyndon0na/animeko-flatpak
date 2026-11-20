@@ -74,6 +74,18 @@ jobs:
           test -x "$app/extra/ani/usr/bin/Ani"
           test -f "$jar"
           test ! -e "$app/extra/ani.appimage"
+          test -f "$app/libexec/strip-bundled-libs.py"
+
+          # FFmpeg comes from org.gnome.Platform. The AppImage's copies and the
+          # duplicate support libraries must be gone, while the runtime-only
+          # pieces the app needs (libmpv and the two JNI wrappers) stay.
+          test ! -e "$app/extra/ani/usr/lib/app/native/libavcodec.so.62"
+          test ! -e "$app/extra/ani/usr/lib/app/native/libavformat.so.62"
+          test ! -e "$app/extra/ani/usr/lib/app/native/libva.so.2"
+          test ! -e "$app/extra/ani/usr/lib/app/ffmpeg"
+          test -f "$app/extra/ani/usr/lib/app/native/libmpv.so.2"
+          test -f "$app/extra/ani/usr/lib/app/libffmpegkitjni.so"
+          test -f "$app/extra/ani/usr/lib/app/libmediampv.so"
 
           # The launcher must see exactly one classpath entry pointing at the
           # bootstrap jar, otherwise it truncates the classpath and dies in
@@ -101,6 +113,27 @@ jobs:
           grep -qx "size=$size" "$metadata"
           grep -qx "uri=$url" "$metadata"
           echo "installed app ok"
+
+      # The app runs FFmpeg in-process through libffmpegkitjni.so. This test
+      # task calls ffmpeg -version through that JNI wrapper and exits 0 only
+      # when the runtime's libav* libraries were found and used.
+      - name: Smoke test runtime FFmpeg
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends xvfb dbus-x11
+          log="$RUNNER_TEMP/ffmpeg.log"
+          cleanup() {
+            flatpak kill me.him188.ani 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          timeout --signal=KILL 120 dbus-run-session -- xvfb-run -a \
+            --server-args='-screen 0 1280x800x24' \
+            flatpak run --env=ANIMEKO_DESKTOP_TEST_TASK=mediamp-ffmpeg-smoke-test \
+            me.him188.ani >"$log" 2>&1
+          grep -q 'ffmpeg version' "$log"
+          grep -q 'Exiting with exit code 0' "$log"
+          tail -15 "$log"
 
       # The runner has no display. Xvfb is enough for the app to log its
       # subsystem status, which now also proves that what apply_extra produced

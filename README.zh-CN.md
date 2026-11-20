@@ -103,6 +103,7 @@ flatpak override --user --filesystem=xdg-videos me.him188.ani
 | `me.him188.ani.yaml` | Flatpak manifest（GNOME runtime 51） |
 | `apply_extra` | 安装/更新时执行：解包 AppImage 并打补丁 |
 | `make-bootstrap.py` | 改写 `Ani.cfg` 并生成引导 jar，由 `apply_extra` 调用，详见[技术说明](docs/packaging-notes.zh-CN.md) |
+| `strip-bundled-libs.py` | 删除 runtime 已有的自带库，播放改用 runtime 的 FFmpeg 8.1 |
 | `ani-wrapper` | `/app/bin/ani` 入口脚本 |
 | `me.him188.ani.desktop` | 桌面入口 |
 | `me.him188.ani.metainfo.xml` | AppStream 元数据 |
@@ -162,6 +163,9 @@ git push origin v6.4.1
   约 337 MB 下载；上游若删除了某个 release 资产，新用户会装不上，直到 manifest 里的 sha256
   指向新的文件。
 * 应用数据存放在 `~/.var/app/me.him188.ani/`，与系统里安装的 Animeko 完全隔离。
+* FFmpeg 使用 `org.gnome.Platform` 自带的 8.1：安装时 `strip-bundled-libs.py` 会删除
+  AppImage 里与 runtime 重名的 `libav*`、`libsw*` 等副本；`libmpv` 等 runtime 没有的库仍随
+  应用提供。升级上游时如果 FFmpeg 大版本变了，runtime 也要同步升级。
 * 播放界面的截图按钮把 PNG 存到 `~/.var/app/me.him188.ani/data/ani/screenshots/`；
   flatpak 沙箱里的 `$HOME` 退出即销毁，所以 wrapper 在启动前把进程工作目录指到了那里，详见
   [技术说明](docs/packaging-notes.zh-CN.md#截图会落在工作目录里)。
