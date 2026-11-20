@@ -231,6 +231,34 @@ download (a normal OSTree repo would only send the objects that changed), and
 since the download happens on the user's machine, an upstream asset that is
 deleted or replaced breaks new installs while CI stays green.
 
+### FFmpeg comes from the runtime
+
+The AppImage carries its own FFmpeg 8.0 build (`libav*`, `libsw*`) and the
+support libraries that build was linked against. `org.gnome.Platform` 51 already
+provides FFmpeg 8.1 with the same SONAMEs, so `apply_extra` runs
+`strip-bundled-libs.py` and removes every bundled library whose SONAME the
+runtime also provides.
+
+Keeping only `libav*`/`libsw*` out would not work. `libffmpegkitjni.so` has
+`DT_RPATH=$ORIGIN/native:$ORIGIN`, so the runtime's FFmpeg finds the AppImage's
+older `libva`, `libglib`, `libz` and friends before the runtime's copies. FFmpeg
+8.1 expects newer symbols from those libraries (`vaMapBuffer2` in libva,
+`g_string_copy` in libglib), and loading fails with an `undefined symbol` error.
+The clean split is therefore "everything the runtime also ships comes from the
+runtime". `libmpv`, `libass`, `libplacebo`, `libunibreak` and `libXpresent` stay
+in `native/` because the runtime does not provide them (plus a few libraries
+whose SONAMEs differ from the runtime's).
+
+The JNI wrapper itself stays: Animeko runs FFmpeg in-process through
+`libffmpegkitjni.so`, not through the `ffmpeg` command-line binary. The
+AppImage's own `ffmpeg` executable is unused and is deleted as well.
+
+This couples the AppImage's FFmpeg SONAMEs to the manifest's runtime. If a
+future Animeko release moves to a new FFmpeg major version (for example SONAME
+63), the runtime has to move at the same time. The CI `mediamp-ffmpeg-smoke-test`
+step runs `ffmpeg -version` through the JNI wrapper and fails the build when it
+no longer loads.
+
 ### What apply_extra runs in
 
 `/app/bin/apply_extra` is executed by flatpak while installing, not by a build
@@ -489,13 +517,14 @@ appears at startup.
 Ani started. platform: Linux x86_64, version: 6.1.0, isDebug: false
 dataDir: file://~/.var/app/me.him188.ani/data/ani
 Anitorrent is loaded.          <- bundled libtorrent, GLIBC_2.38 symbols resolved
-FFmpegKit is loaded.           <- bundled FFmpeg
-mediampv is loaded.            <- bundled libmpv
+FFmpegKit is loaded.           <- FFmpeg 8.1 from org.gnome.Platform
+mediampv is loaded.            <- bundled libmpv, runtime FFmpeg
 JCEF is initialized.           <- in-app browser
 Using bundled video enhancement shaders from /app/extra/ani/usr/lib/app/resources/anime4k
 ```
 
 Every shared library dependency of `Ani`, `libskiko`, `libmediampv`,
 `libanitorrent`, `libcef`, `libjvm` and `libmpv` resolves inside the sandbox with
-nothing missing, and the app stays up on its own without crashes or fatal log
-lines.
+nothing missing. `libav*` and `libsw*` resolve to `org.gnome.Platform`; the
+AppImage's duplicate copies are removed at install time. The app stays up on its
+own without crashes or fatal log lines.

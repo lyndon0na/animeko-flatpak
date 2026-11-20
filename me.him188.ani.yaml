@@ -4,7 +4,7 @@
 # declared as an extra-data source, so flatpak downloads it straight from the
 # upstream release on the user's machine, verifies its sha256 and then runs
 # apply_extra to unpack and patch it. This repository ships nothing but the
-# desktop metadata, the entry point and two helper scripts.
+# desktop metadata, the entry point and three helper scripts.
 #
 # The upstream AppImage ships a jpackage (JetBrains Runtime 21) launcher that
 # mis-sizes its JvmlLauncherData buffer when the classpath is very long:
@@ -78,6 +78,8 @@ modules:
       # flatpak looks for exactly this path when it has extra data to apply.
       - install -Dm755 apply_extra "${FLATPAK_DEST}/bin/apply_extra"
       - install -Dm755 make-bootstrap.py "${FLATPAK_DEST}/libexec/make-bootstrap.py"
+      - install -Dm755 strip-bundled-libs.py
+        "${FLATPAK_DEST}/libexec/strip-bundled-libs.py"
       - install -Dm644 me.him188.ani.desktop
         "${FLATPAK_DEST}/share/applications/me.him188.ani.desktop"
       - install -Dm644 me.him188.ani.metainfo.xml
@@ -105,6 +107,8 @@ modules:
         path: apply_extra
       - type: file
         path: make-bootstrap.py
+      - type: file
+        path: strip-bundled-libs.py
       - type: file
         path: ani-wrapper
       - type: file

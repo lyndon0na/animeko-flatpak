@@ -112,6 +112,7 @@ of width.
 | `me.him188.ani.yaml` | Flatpak manifest (GNOME runtime 51) |
 | `apply_extra` | runs at install and update time: unpacks the AppImage and patches it |
 | `make-bootstrap.py` | rewrites `Ani.cfg` and generates the bootstrap jar; executed by `apply_extra`, see the [packaging notes](docs/packaging-notes.md) |
+| `strip-bundled-libs.py` | removes bundled libraries that the runtime already provides, so playback uses the runtime's FFmpeg 8.1 |
 | `ani-wrapper` | `/app/bin/ani` entry point |
 | `me.him188.ani.desktop` | launcher entry |
 | `me.him188.ani.metainfo.xml` | AppStream metadata |
@@ -187,6 +188,11 @@ substituted at publish time, so no key material is in the repository.
   the manifest is pointed at a new one.
 * App state lives in `~/.var/app/me.him188.ani/`, fully separate from a
   system-installed Animeko.
+* FFmpeg comes from `org.gnome.Platform` 8.1: at install time
+  `strip-bundled-libs.py` removes the AppImage's duplicate `libav*`, `libsw*`
+  and other runtime-provided libraries. `libmpv` and the other libraries the
+  runtime does not ship stay bundled. If upstream moves to a new FFmpeg major
+  version, the runtime has to move with it.
 * The playback screen's screenshot button saves PNGs to
   `~/.var/app/me.him188.ani/data/ani/screenshots/`; the wrapper points the
   process working directory there because flatpak's sandbox `$HOME` is

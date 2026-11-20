@@ -16,3 +16,6 @@ squashfs-root/
 
 # Command Code agent state (taste learnings etc.) - not part of this project
 .commandcode/
+
+# Python bytecode from the helper scripts
+__pycache__/

@@ -36,6 +36,19 @@ mv squashfs-root "$APP_DIR"
 test -x "$APP_DIR/usr/bin/Ani"
 test -f "$APP_DIR/usr/lib/app/Ani.cfg"
 
+# The AppImage carries its own FFmpeg 8.0 build and the support libraries it
+# was built against. org.gnome.Platform already ships FFmpeg 8.1 with the same
+# SONAMEs, so keeping the bundled copies would duplicate them - and, worse,
+# shadow the runtime's newer dependencies through the JNI wrapper's DT_RPATH.
+# strip-bundled-libs.py removes every native library whose SONAME the runtime
+# also provides; libmpv, libass, libplacebo, libunibreak and libXpresent stay
+# because the runtime does not ship them.
+python3 /app/libexec/strip-bundled-libs.py "$APP_DIR/usr/lib/app/native"
+
+# Animeko calls FFmpeg in-process through libffmpegkitjni.so, never through this
+# standalone command-line binary.
+rm -f "$APP_DIR/usr/lib/app/ffmpeg"
+
 # python3 comes from org.gnome.Platform; the app's own jpackage launcher cannot
 # survive its 37 KB classpath (see docs/packaging-notes.md).
 python3 /app/libexec/make-bootstrap.py "$APP_DIR/usr/lib/app"

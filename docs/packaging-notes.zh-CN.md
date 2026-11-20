@@ -201,6 +201,30 @@ flatpak-builder 只把这条记录写进应用 metadata，不会下载文件。A
 （普通 OSTree 仓库只传变化的对象）；而且下载发生在用户机器上，上游如果把 release 资产删了
 或换了，新用户会装不上，而你的 CI 仍然是绿的。
 
+### FFmpeg 改用 runtime 自带的那一份
+
+AppImage 自带一套 FFmpeg 8.0（`libav*`、`libsw*`）以及它链接时用的支撑库。
+`org.gnome.Platform` 51 已经提供了同 SONAME 的 FFmpeg 8.1，所以 `apply_extra`
+会调用 `strip-bundled-libs.py`，把 native 目录里所有“runtime 也有同名 SONAME”
+的库删掉。
+
+只删 `libav*`/`libsw*` 是不够的。`libffmpegkitjni.so` 带
+`DT_RPATH=$ORIGIN/native:$ORIGIN`，runtime 的 FFmpeg 会优先找到 AppImage 里较旧的
+`libva`、`libglib`、`libz` 等，而 FFmpeg 8.1 需要这些库里的新符号（例如 libva
+的 `vaMapBuffer2`、libglib 的 `g_string_copy`），加载时会报 `undefined symbol`。
+所以切分规则是“runtime 有的全部用 runtime 的”：`libmpv`、`libass`、
+`libplacebo`、`libunibreak`、`libXpresent` 因为 runtime 没有（以及少数
+SONAME 与 runtime 不同的库），继续留在 `native/` 里。
+
+JNI wrapper 本身必须保留：Animeko 是通过 `libffmpegkitjni.so` 在进程内调用
+FFmpeg 的，并不执行外部 `ffmpeg` 命令。AppImage 自带的 `ffmpeg` 可执行文件
+没有被使用，也一并删除。
+
+这样一来，AppImage 里 FFmpeg 的 SONAME 就和 manifest 选的 runtime 绑定了。
+如果将来的 Animeko 换成新的 FFmpeg 大版本（例如 SONAME 63），runtime 也必须
+同时升级。CI 里的 `mediamp-ffmpeg-smoke-test` 会通过 JNI 跑一次
+`ffmpeg -version`，加载不了就阻断构建。
+
 ### apply_extra 跑在什么样的沙箱里
 
 `/app/bin/apply_extra` 是 flatpak 在安装过程中执行的，不是构建沙箱，它拿到的沙箱比应用运行时
@@ -427,11 +451,13 @@ $ flatpak run --command=gdbus me.him188.ani call --session \
 Ani started. platform: Linux x86_64, version: 6.1.0, isDebug: false
 dataDir: file://~/.var/app/me.him188.ani/data/ani
 Anitorrent is loaded.          <- 自带 libtorrent，GLIBC_2.38 符号可解析
-FFmpegKit is loaded.           <- 自带 FFmpeg
-mediampv is loaded.            <- 自带 libmpv
+FFmpegKit is loaded.           <- org.gnome.Platform 自带的 FFmpeg 8.1
+mediampv is loaded.            <- 自带 libmpv，FFmpeg 来自 runtime
 JCEF is initialized.           <- 内置浏览器
 Using bundled video enhancement shaders from /app/extra/ani/usr/lib/app/resources/anime4k
 ```
 
 `Ani`、`libskiko`、`libmediampv`、`libanitorrent`、`libcef`、`libjvm`、`libmpv`
-在沙箱内的所有动态库依赖都能解析，零缺失；应用能自行长时间驻留，启动后无崩溃、无 fatal 日志。
+在沙箱内的所有动态库依赖都能解析，零缺失；其中 `libav*`、`libsw*` 来自
+`org.gnome.Platform`，AppImage 里的重复副本在安装时已经删除。应用能自行长时间驻留，
+启动后无崩溃、无 fatal 日志。
